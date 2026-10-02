@@ -1,0 +1,1 @@
+# fruki_EDA
