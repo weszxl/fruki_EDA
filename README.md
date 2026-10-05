@@ -6,10 +6,11 @@
 ├── /docs
 │   └── insights.md              #Insights obtidos após a análise dos dados
 │
-├── /data                        # planilhas
+├── /data                        # CRIAR A ESTRUTURA '/data/fruki_data'
+│   └── /fruki_data              # planilhas da fruki (MOVER AS PLANILHAS PARA CÁ)
 │
 ├── requirements.txt             # bibliotecas necessárias
-└── fruki_eda.ipynb                # código do EDA
+└── analyse_fruki.ipynb              # código do EDA
 ```
 
 ## Configuração do ambiente local
