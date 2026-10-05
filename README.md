@@ -3,14 +3,21 @@
 ```text
 /fruki_EDA
 │
-├── /docs
-│   └── insights.md              #Insights obtidos após a análise dos dados
-│
 ├── /data                        # CRIAR A ESTRUTURA '/data/fruki_data'
 │   └── /fruki_data              # planilhas da fruki (MOVER AS PLANILHAS PARA CÁ)
 │
-├── requirements.txt             # bibliotecas necessárias
-└── analyse_fruki.ipynb              # código do EDA
+├── /docs
+│   └── insights.md              # insights obtidos após a análise dos dados
+│
+├── venv/                        # ambiente virtual
+│
+├── .gitignore                   # arquivos que não devem ser commitados
+│
+├── analyse_fruki.ipynb          # código do EDA
+│
+├── README.txt
+│
+└── requirements.txt             # bibliotecas necessárias
 ```
 
 ## Configuração do ambiente local
