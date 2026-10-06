@@ -7,7 +7,8 @@
 │   └── /fruki_data              # planilhas da fruki (MOVER AS PLANILHAS PARA CÁ)
 │
 ├── /docs
-│   └── insights.md              # insights obtidos após a análise dos dados
+│   ├── insights.md              # insights obtidos após a análise dos dados
+│   └── notes.md                 # notas gerais sobre a análise
 │
 ├── venv/                        # ambiente virtual
 │

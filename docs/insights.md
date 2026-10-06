@@ -1,9 +1,9 @@
-- 'dim_' indica um modelo de Data Warehouse. São tabelas de dimensão. Elas não costumam registrar transações de vendas, mas sim os atributos e cadastros que dão contexto a essas vendas.
+# As quatro planilhas representam a estrutura de um Data Warehouse voltado para a distribuição de bebidas. Elas contêm os cadastros estruturais que sustentam a operação comercial:
 
-- Cliente + Hierarquia: A tabela dim_cliente se liga à dim_hierarquia_comercial usando a coluna id_hierarquia (no cliente) com a ID_HIERARQUIA (na comercial). Isso diz quem atende qual cliente.
+- Clientes (dim_cliente): Cadastro físico e comercial, contendo localização, segmento de atuação, perfil de crédito e a tabela de preço vinculada.
 
-- Preço + Item: A tabela dim_tabela_preco se conecta à dim_item através do ID_ITEM. Isso mapeia qual produto custa quanto.
+- Hierarquia Comercial (dim_hierarquia_comercial): A estrutura da força de vendas, mapeando a cadeia de representantes, supervisores e gerentes por rota.
 
-- Cliente + Preço: A tabela dim_cliente aponta para a ID_TABELA_PRECO. Isso indica qual regra de preço se aplica a cada cliente.
+- Itens (dim_item): O catálogo do portfólio, detalhando características físicas dos produtos, como sabor, tipo de embalagem, litragem e família (ex: Linha PET).
 
-- SEM DADOS de transação de venda
+- Preços (dim_tabela_preco): As marcações de precificação, definindo tetos mínimos e preços de venda para os itens ativos.
