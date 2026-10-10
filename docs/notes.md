@@ -16,4 +16,11 @@
 - Precificação sem sentido (T-T), com 374.131  preços diferentes para apenas 262 produtos. (?????????)
 - - O preço não é fixo por produto. Há uma média, mais de 1.400 regras de preço para cada item do catálogo Os preços variam dependendo dos fatores.
 
-- 
+* Vendedores se movem, que nem as moças do jequiti
+* * meio que fodase, pq o modelo de venda é pré-compra
+
+- Filtre cedo, filtre com frequência (Filter Early, Filter Often)
+
+- ceps invalidos (apontam pro ira)
+- lat/long valido se arrumar
+
