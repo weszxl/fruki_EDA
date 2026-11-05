@@ -1,36 +1,25 @@
-- 'dim_' indica um modelo de Data Warehouse. São tabelas de dimensão. Elas não costumam registrar transações de vendas, mas sim os atributos e cadastros que dão contexto a essas vendas.
+# Notas sobre as tabelas de origem e o saneamento de dados
 
-- Cliente + Hierarquia: A tabela dim_cliente se liga à dim_hierarquia_comercial usando a coluna id_hierarquia (no cliente) com a ID_HIERARQUIA (na comercial). Isso diz quem atende qual cliente.
+## Estrutura das tabelas de origem
 
-- Preço + Item: A tabela dim_tabela_preco se conecta à dim_item através do ID_ITEM. Isso mapeia qual produto custa quanto.
+O prefixo `dim_` indica um modelo de Data Warehouse. São tabelas de dimensão: em geral não registram transações de venda, e sim os atributos e cadastros que dão contexto a essas vendas.
 
-- Cliente + Preço: A tabela dim_cliente aponta para a ID_TABELA_PRECO. Isso indica qual regra de preço se aplica a cada cliente.
+- **Cliente + Hierarquia:** `dim_cliente` se liga a `dim_hierarquia_comercial` pela coluna `id_hierarquia` (cliente) com `ID_HIERARQUIA` (comercial). Indica quem atende cada cliente.
+- **Preço + Item:** `dim_tabela_preco` se conecta a `dim_item` pelo `ID_ITEM`. Mapeia qual produto custa quanto.
+- **Cliente + Preço:** `dim_cliente` aponta para `ID_TABELA_PRECO`. Indica qual regra de preço se aplica a cada cliente.
 
-- SEM DADOS de transação de venda
+## Limitações dos dados
 
-- Não tem histórico nas planilhas.
+- **Sem dados de transação de venda.** Não há histórico de pedidos nas planilhas; o histórico (Pedido e Item_Pedido) é simulado.
+- **Base de clientes majoritariamente inativa.** São 24.565 clientes inativos e 2.925 ativos. Após o filtro de suspensão de crédito, restam 2.861 clientes. As simulações devem considerar apenas perfis ativos, pois clientes inativos não têm utilidade para a API.
+- **Precificação complexa.** Há 374.131 preços diferentes para apenas 262 produtos, ou seja, mais de 1.400 regras de preço por item. O preço não é fixo por produto: varia conforme tabela de preço, região e cliente. No Supabase isso foi resumido em `preco_base` e `preco_minimo` por produto, com a variação regional representada pelo `multiplicador` da tabela `Cidade`.
+- **Preço por região.** Regiões como litoral, serra e centro recebiam valores diferentes para os mesmos produtos. Padronizar os nomes das regiões usados nos documentos (Litoral, Serra, Região Metropolitana e Interior).
+- **Vendedores mudam de carteira.** Como o modelo de venda é pré-compra, esse movimento tem baixo impacto na solução.
+- **Vendedores órfãos e regiões sem responsável.** Há vendedores órfãos e regiões não repassadas. Antes de criar a chave estrangeira `cliente.id_hierarquia`, verificar valores nulos ou sem correspondência em `Hierarquia`.
+- **CEPs inválidos.** Parte dos CEPs é inválida. Latitude e longitude podem ser aproveitadas após correção. **os CEPs foram tratados no `cliente.csv` (foram corrigidos ou simulados).]**
 
-- A base de clientes é na maior prte inútil (24.565 estão "Inativos" e 2.925 "Ativos").
-- - as simulações devem ser feitas considerando os perfis ativos, clientes inativos são inúteis pra API;
+## Regras de negócio e decisões
 
-- Precificação sem sentido (T-T), com 374.131  preços diferentes para apenas 262 produtos. (?????????)
-- - O preço não é fixo por produto. Há uma média, mais de 1.400 regras de preço para cada item do catálogo Os preços variam dependendo dos fatores.
-
-* Vendedores se movem, que nem as moças do jequiti
-* * meio que fodase, pq o modelo de venda é pré-compra
-
-- Filtre cedo, filtre com frequência (Filter Early, Filter Often)
-
-- ceps invalidos (apontam pro ira)
-- lat/long valido se arrumar
-
-- ID's de 1 a 30000 são apenas cronologia do sistema
-- - o catalogo deve ser estritamente o "RG" do produto, visto que o valor é variavel
-- - servirá para a base di visualização, ERP vai consultar o id para ver que produto é aquele
-
-- regiões como liotral, centro ou serra recebiam valores diferentes para os produtos
-
-- há vendedores orfãos / regiões não repassadas
-
-
------------------------
+- **Filtrar cedo e com frequência (Filter Early, Filter Often).** Reduzir as tabelas logo nas primeiras etapas (clientes ativos, itens em comercialização, tabelas de preço em vigor).
+- **IDs de 1 a 30.000** são apenas a ordem cronológica do sistema, sem significado de negócio.
+- **O catálogo de produtos funciona como o "RG" do produto,** já que o valor é variável. Serve para a base de visualização, e o ERP consulta o ID para saber qual produto é.
