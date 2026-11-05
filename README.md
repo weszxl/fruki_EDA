@@ -10,6 +10,8 @@ O processamento dos dados ocorre em quatro etapas:
 3. Transformação (`eda/transform_data.ipynb`): conversão de códigos em nomes de produtos, segmentos, subsegmentos, vendedores e municípios do Rio Grande do Sul e de Santa Catarina (48 cidades), com distribuição de tabelas de preço por região (Litoral, Serra, Região Metropolitana e Interior).
 4. Geração de dados de simulação (`eda/mock_data.ipynb`): geração de CNPJ, telefone, datas de compra e histórico de pedidos e itens para compor os arquivos CSV de carga no Supabase.
 
+Observações sobre os dados de origem (detalhes em `docs/notes.md`): as tabelas do Data Warehouse não têm histórico de vendas, e a maior parte da base de clientes está inativa, por isso o histórico é simulado e apenas clientes ativos são usados.
+
 ---
 
 ## Estrutura do Projeto
@@ -21,8 +23,9 @@ O processamento dos dados ocorre em quatro etapas:
 │   └── notes.md                                 # Registro do saneamento de dados e regras de negócio
 ├── eda/
 │   ├── data/                                    # Arquivos CSV para importação no Supabase
-│   │   ├── cidade.csv                           # Cadastro de 48 municípios (RS e SC)
+│   │   ├── cidade.csv                           # Cadastro de 48 municípios (RS e SC), com região e multiplicador [CONFIRMAR]
 │   │   ├── cliente.csv                          # Cadastro de 2.861 pontos de venda B2B
+│   │   ├── estoque_erp.csv                      # Estoque simulado dos 201 produtos [CONFIRMAR: exportar do Supabase]
 │   │   ├── hierarquia.csv                       # Cadastro de representantes e vendedores (500 registros)
 │   │   ├── item_pedido.csv                      # Linhas de itens por pedido (29.972 registros)
 │   │   ├── pedido.csv                           # Cabeçalho do histórico de pedidos (9.999 registros)
@@ -45,16 +48,16 @@ O processamento dos dados ocorre em quatro etapas:
 
 ## Banco de Dados (Supabase) e Integração com Java
 
-Estrutura de tabelas no Supabase para integração com a aplicação em Java.
+Estrutura de tabelas no Supabase para integração com a aplicação em Java. O schema (DDL) é gerenciado por migrações Flyway e **não** está neste repositório **[CONFIRMAR onde ficam as migrações]**. Este repositório fornece apenas os dados de carga.
 
 ### 1. Entidades
 
 #### A. Entidades de Cadastro
 - **Hierarquia** (`id_hierarquia`, `cod_representante`, `nome_vendedor`): armazena os representantes e vendedores. Identifica qual vendedor atende cada cliente e direciona os alertas para o aplicativo.
-- **Cidade** (`id_cidade`, `nome`, `uf`): armazena os 48 municípios que o `ContextoService` utiliza para consulta em APIs de terceiros.
+- **Cidade** (`id_cidade`, `nome`, `uf`, `regiao`, `multiplicador`): armazena os 48 municípios. O `nome` é utilizado pelo `ContextoService` para consulta em APIs de terceiros. A `regiao` (macrorregião) e o `multiplicador` comercial pesam no cálculo de pontuação (`score`).
 - **Cliente** (`id_cliente`, `cnpj`, `nome`, `segmento`, `subsegmento`, `numero_celular`, `cep`, `ultima_compra`, `id_hierarquia`, `id_cidade`): cadastro dos 2.861 pontos de venda B2B. A coluna `cnpj` identifica o registro nas buscas do banco. As colunas `segmento` e `subsegmento` indicam o ramo de comércio para o cálculo de pontuação (`scores`). A coluna `ultima_compra` funciona como atalho para a API verificar clientes sem compras no período sem percorrer a tabela de pedidos a cada verificação, reduzindo custo e processamento.
-- **Produto** (`id_item`, `nome`, `cod_familia`, `preco_base`, `preco_minimo`, `ativo`): catálogo de 201 itens da Fruki. A coluna `ativo` indica se o produto está à venda. As colunas `preco_base` e `preco_minimo` definem os limites de valor para negociações no varejo e no atacado e para sugestão de promoções.
-- **Produto_Complementar** (`produto_id`, `complementar_id`): tabela de associação que substitui a lista em cache (`List<Long> complementaresIds`). Armazena os pares de cruzamento de vendas (`cross-sell`) que o algoritmo identifica para leitura pela API, reduzindo processamento e custo.
+- **Produto** (`id_item`, `nome`, `cod_familia`, `preco_base`, `preco_minimo`, `ativo`): catálogo de 201 itens da Fruki. A coluna `ativo` indica se o produto está à venda. As colunas `preco_base` e `preco_minimo` definem os limites de valor para negociações no varejo e no atacado e para sugestão de promoções. A variação de preço por tabela e região do Data Warehouse foi resumida nessa faixa, e a variação regional entra pelo `multiplicador` de `Cidade`.
+- **Produto_Complementar** (`produto_id`, `complementar_id`): tabela de associação (autorrelacionamento de `Produto`) que substitui a lista em cache (`List<Long> complementaresIds`). Armazena os pares de cruzamento de vendas (`cross-sell`) que o algoritmo identifica para leitura pela API, reduzindo processamento e custo.
 
 #### B. Entidades de Transação e Histórico
 - **Pedido** (`id_pedido`, `data_pedido`, `id_cliente`): cabeçalho das vendas com vínculo à entidade `Cliente`. Registra quem comprou e em qual data.
@@ -62,10 +65,10 @@ Estrutura de tabelas no Supabase para integração com a aplicação em Java.
 
 #### C. Entidades de Regras e Inteligência (LLM e Score)
 - **Promocao** (`id_promocao`, `nome`, `produto_id`, `categoria`, `tipo_desconto`, `valor_desconto`, `inicio`, `fim`, `ativa`): registra campanhas de vendas e promoções por período.
-- **Notificacao** (`id_notificacao`, `cliente_id`, `tipo`, `mensagem`, `canal`, `status`, `criada_em`): registra as mensagens do LLM e o estado de entrega.
+- **Notificacao** (`id_notificacao`, `cliente_id`, `promocao_id`, `tipo`, `mensagem`, `canal`, `status`, `criada_em`): registra as mensagens do LLM e o estado de entrega. O campo `promocao_id` é opcional e identifica a promoção de origem **[CONFIRMAR: coluna existe no schema?]**.
 
 #### D. Entidade de Estoque (Simulação de ERP)
-- **Estoque_ERP** (`produto_id`, `quantidade_disponivel`, `ultima_atualizacao`): isola a disponibilidade dos itens e simula a consulta ao sistema ERP.
+- **Estoque_ERP** (`produto_id`, `quantidade_disponivel`, `ultima_atualizacao`): isola a disponibilidade dos itens e simula a consulta ao sistema ERP. Contém 201 registros simulados, um por produto.
 
 ### 2. Relações e Cardinalidade
 
@@ -79,6 +82,7 @@ Estrutura de tabelas no Supabase para integração com a aplicação em Java.
 | `Produto_Complementar` | `produto_id`, `complementar_id` | `Produto` | N : N | Liga um produto aos produtos comprados em conjunto com ele. |
 | `Promocao` | `produto_id` | `Produto` | N : 1 | Aplica uma campanha de desconto a um produto. |
 | `Notificacao` | `cliente_id` | `Cliente` | N : 1 | Direciona a mensagem para o cliente de destino. |
+| `Notificacao` | `promocao_id` (opcional) | `Promocao` | N : 1 | Indica a promoção que originou a mensagem. |
 | `Estoque_ERP` | `produto_id` | `Produto` | 1 : 1 | Define o saldo de estoque de cada produto. |
 
 ### 3. Comportamento dos Dados e Fluxos da Aplicação
@@ -93,14 +97,17 @@ Estrutura de tabelas no Supabase para integração com a aplicação em Java.
 
 #### Funcionamento de `Promocao`
 - Leitura no cálculo de recomendação: a API consulta a tabela durante o cálculo para aumentar a pontuação (`score`) dos produtos em oferta.
-- Disparo de evento: a inserção de uma linha aciona um evento no sistema informando que existem clientes que precisam receber notificação sobre o desconto.
+- Disparo de evento: a inserção de uma linha aciona um evento no sistema informando que existem clientes que precisam receber notificação sobre o desconto **utilizamos o mecanismo: trigger do Supabase**.
 
 #### Funcionamento de `Notificacao`
-Atua como fila de saída do LLM em conjunto com as tabelas `Cliente` e `Promocao`:
+Atua como fila de saída do LLM (que funciona apenas como tradutor das mensagens) em conjunto com as tabelas `Cliente` e `Promocao`:
 - **Fluxo de Promoção (`Promocao` + `Notificacao`)**: ao detectar uma promoção, o sistema monta a mensagem para os clientes que atendem aos critérios e grava o registro na tabela `Notificacao`.
 - **Fluxo de Recuperação (`Cliente` + `Notificacao`)**: o sistema monitora a coluna `ultima_compra` da tabela `Cliente`. Quando um CNPJ ultrapassa o intervalo de compra sem realizar pedidos, a API gera o argumento de venda e grava o registro na tabela `Notificacao` para envio via WhatsApp ou alerta no aplicativo.
 
-#### Cálculo de Pontuação (Scores) no Supabase
+#### Manutenção de `Cliente.ultima_compra`
+- Por ser um dado derivado de `Pedido`, a coluna deve ser mantida em sincronia com a última `data_pedido` de cada cliente ** utilizamos uma view: quebra_consumo**.
+
+#### Cálculo de Pontuação (Scores) no Supabase (em avaliação)
 - Com cerca de 30.000 registros em `Item_Pedido`, transferir os dados pela rede para a memória da aplicação em Java a cada requisição aumenta o tempo de resposta da API.
 - Cálculos como frequência de compra do cliente e pontuação por região podem ser executados no Supabase para reduzir o tráfego de dados e o uso de memória na API.
 
@@ -115,6 +122,7 @@ Atua como fila de saída do LLM em conjunto com as tabelas `Cliente` e `Promocao
 - `pip` (gerenciador de pacotes do Python)
 - Jupyter Notebook ou extensão Jupyter no editor de código
 - Conta e instância de banco de dados no Supabase (PostgreSQL) para carga dos arquivos CSV
+- Tabelas de origem do Data Warehouse da Fruki (não versionadas no repositório)
 
 ---
 
@@ -144,3 +152,30 @@ Ative o ambiente:
 ```bash
 pip install -r requirements.txt
 ```
+
+### 3. Preparar os dados de origem
+
+O diretório `eda/data_/` não é versionado. Copie as tabelas de origem do Data Warehouse para `eda/data_/fruki_data_base/` antes de executar os notebooks.
+
+### 4. Executar os notebooks em ordem
+
+1. `eda/data_visuali.ipynb`
+2. `eda/data_cleanning.ipynb`
+3. `eda/transform_data.ipynb`
+4. `eda/mock_data.ipynb`
+
+Ao final, os arquivos CSV de carga ficam em `eda/data/`.
+
+### 5. Carregar os dados no Supabase
+
+Com o schema já criado (migrações Flyway), importe os CSVs respeitando a ordem das chaves estrangeiras:
+
+1. `hierarquia.csv`
+2. `cidade.csv`
+3. `produto.csv`
+4. `cliente.csv`
+5. `pedido.csv`
+6. `item_pedido.csv`
+7. `estoque_erp.csv`
+
+As tabelas `produto_complementar`, `promocao` e `notificacao` permanecem vazias: são preenchidas pela API.
